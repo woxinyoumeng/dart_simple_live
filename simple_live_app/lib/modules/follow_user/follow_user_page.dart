@@ -18,8 +18,7 @@ class FollowUserPage extends GetView<FollowUserController> {
 
   @override
   Widget build(BuildContext context) {
-    var count = MediaQuery.of(context).size.width ~/ 500;
-    if (count < 1) count = 1;
+    var count = (MediaQuery.of(context).size.width ~/ 185).clamp(2, 5);
     return Scaffold(
       appBar: AppBar(
         title: const Text("关注用户"),

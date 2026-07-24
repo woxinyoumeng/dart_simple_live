@@ -152,14 +152,18 @@ class LiveRoomPage extends GetView<LiveRoomController> {
               Expanded(
                 child: buildMediaPlayer(),
               ),
-              SizedBox(
-                width: 300,
-                child: Column(
-                  children: [
-                    buildUserProfile(context),
-                    buildMessageArea(),
-                  ],
-                ),
+              Obx(
+                () => controller.showInfoPanel.value
+                    ? SizedBox(
+                        width: 300,
+                        child: Column(
+                          children: [
+                            buildUserProfile(context),
+                            buildMessageArea(),
+                          ],
+                        ),
+                      )
+                    : const SizedBox.shrink(),
               ),
             ],
           ),
@@ -771,6 +775,19 @@ class LiveRoomPage extends GetView<LiveRoomController> {
 
   List<Widget> buildAppbarActions(BuildContext context) {
     return [
+      Obx(
+        () => IconButton(
+          onPressed: () {
+            controller.showInfoPanel.toggle();
+          },
+          icon: Icon(
+            controller.showInfoPanel.value
+                ? Remix.sidebar_fold_line
+                : Remix.sidebar_unfold_line,
+          ),
+          tooltip: controller.showInfoPanel.value ? "收起侧栏" : "展开侧栏",
+        ),
+      ),
       IconButton(
         onPressed: () {
           showMore();

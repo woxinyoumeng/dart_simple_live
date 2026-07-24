@@ -78,6 +78,9 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   var currentLineIndex = -1;
   var currentLineInfo = "".obs;
 
+  /// 是否显示右侧信息面板
+  RxBool showInfoPanel = true.obs;
+
   /// 退出倒计时
   var countdown = 60.obs;
 

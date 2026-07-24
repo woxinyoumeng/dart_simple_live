@@ -26,6 +26,13 @@ class FollowUserItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var site = Sites.allSites[item.siteId]!;
+    if (item.liveStatus.value == 2) {
+      return _buildLiveCard(context, site);
+    }
+    return _buildListTile(context, site);
+  }
+
+  Widget _buildListTile(BuildContext context, Site site) {
     return ListTile(
       contentPadding: AppStyle.edgeInsetsL16.copyWith(right: 4),
       leading: NetImage(
@@ -135,6 +142,119 @@ class FollowUserItem extends StatelessWidget {
                 )),
       onTap: onTap,
       onLongPress: onLongPress,
+    );
+  }
+
+  Widget _buildLiveCard(BuildContext context, Site site) {
+    return Card(
+      margin: const EdgeInsets.all(3),
+      clipBehavior: Clip.antiAlias,
+      elevation: 1,
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Stack(
+                children: [
+                  NetImage(
+                    item.cover.value ?? '',
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                  ),
+                  Positioned(
+                    left: 0, right: 0, bottom: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [Colors.black54, Colors.transparent],
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.fiber_manual_record, color: Colors.red, size: 8),
+                          AppStyle.hGap4,
+                          const Text(
+                            '直播',
+                            style: TextStyle(color: Colors.white, fontSize: 10),
+                          ),
+                          const Spacer(),
+                          if (item.liveStartTime != null)
+                            Text(
+                              formatLiveDuration(item.liveStartTime),
+                              style: const TextStyle(color: Colors.white70, fontSize: 9),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(6, 3, 2, 3),
+              child: Row(
+                children: [
+                  NetImage(
+                    item.face,
+                    width: 20,
+                    height: 20,
+                    borderRadius: 10,
+                  ),
+                  AppStyle.hGap4,
+                  Expanded(
+                    child: Text(
+                      item.userName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                  ),
+                  if (item.tag != "全部")
+                    Tooltip(
+                      message: '长按修改标签',
+                      child: GestureDetector(
+                        onLongPress: onLongPress,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          margin: const EdgeInsets.only(right: 2),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Remix.price_tag_3_line,
+                            size: 10,
+                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (onRemove != null)
+                    SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: IconButton(
+                        onPressed: () => onRemove?.call(),
+                        icon: const Icon(Remix.dislike_line, size: 14),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

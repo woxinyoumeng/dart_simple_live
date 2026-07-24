@@ -117,6 +117,7 @@ class Utils {
   }) {
     SmartDialog.show(
       alignment: Alignment.topRight,
+      clickMaskDismiss: true,
       animationBuilder: (controller, child, animationParam) {
         //从右到左
         return SlideTransition(

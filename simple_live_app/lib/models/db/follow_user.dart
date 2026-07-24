@@ -44,6 +44,9 @@ class FollowUser {
   /// 开播时间戳
   String? liveStartTime;
 
+  /// 直播间封面（运行时，不持久化）
+  Rx<String?> cover = Rx<String?>(null);
+
   factory FollowUser.fromJson(Map<String, dynamic> json) => FollowUser(
         id: json['id'],
         roomId: json['roomId'],

@@ -232,13 +232,16 @@ class FollowService extends GetxService {
         // 只有正在直播时才查详细信息
         var detail = await site.liveSite.getRoomDetail(roomId: item.roomId);
         item.liveStartTime = detail.showTime;
+        item.cover.value = detail.cover;
       } else {
         item.liveStartTime = null;
+        item.cover.value = null;
       }
     } catch (e) {
       Log.logPrint(e);
       item.liveStatus.value = 0;
       item.liveStartTime = null;
+      item.cover.value = null;
     } finally {
       updatedCount++;
       if (updatedCount >= followList.length) {
