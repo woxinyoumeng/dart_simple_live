@@ -19,6 +19,12 @@ import 'package:simple_live_app/models/db/follow_user_tag.dart';
 import 'package:simple_live_app/services/db_service.dart';
 
 class FollowService extends GetxService {
+  /// 自动并发数上限。
+  ///
+  /// 关注列表动辄数十上百人，单条请求又要 1~3 秒，上限过低会让一次刷新
+  /// 排成好几轮串行等待；配合下面按平台交错，落到单个平台的并发仍在可控范围。
+  static const int maxAutoConcurrency = 40;
+
   StreamSubscription<dynamic>? subscription;
   static FollowService get instance => Get.find<FollowService>();
 
@@ -39,9 +45,6 @@ class FollowService extends GetxService {
 
   /// 当前tag的用户列表
   RxList<FollowUser> curTagFollowList = RxList<FollowUser>();
-
-  /// 已经更新状态的数量
-  var updatedCount = 0;
 
   /// 是否正在更新
   var updating = false.obs;
@@ -91,22 +94,26 @@ class FollowService extends GetxService {
   // 根据标签筛选数据
   void filterDataByTag(FollowUserTag tag) {
     curTagFollowList.clear();
-    // 用一个新的列表来存储需要删除的 userId
-    List<String> toRemove = [];
+    // 先建一次索引：在标签内逐个线性查找的代价是「标签数 × 关注数」，
+    // 关注量大时每次切换标签都会明显卡顿
+    final followById = {for (var user in followList) user.id: user};
+    // 用 Set 判断待删除项，避免 removeWhere 内部再做一次线性 contains
+    final toRemove = <String>{};
     for (var id in tag.userId) {
-      if (followList.any((x) => x.id == id)) {
-        // 找到对应的 followUser 添加到 curTagFollowList
-        curTagFollowList.add(followList.firstWhere((x) => x.id == id));
-      } else {
+      final follow = followById[id];
+      if (follow == null) {
         // 标记要删除的 id
         toRemove.add(id);
+      } else {
+        // 找到对应的 followUser 添加到 curTagFollowList
+        curTagFollowList.add(follow);
       }
     }
     // 双向确认用户取消关注后标签内是否还有该用户
     // 在遍历结束后统一移除不在 followList 中的 id
-    tag.userId.removeWhere((id) => toRemove.contains(id));
-    // 更新数据库
     if (toRemove.isNotEmpty) {
+      tag.userId.removeWhere(toRemove.contains);
+      // 更新数据库
       DBService.instance.updateFollowTag(tag);
     }
     // 标签内排序
@@ -125,8 +132,9 @@ class FollowService extends GetxService {
       updateTimer?.cancel();
       updateTimer = Timer.periodic(
         Duration(
-            minutes:
-                AppSettingsController.instance.autoUpdateFollowDuration.value),
+          minutes:
+              AppSettingsController.instance.autoUpdateFollowDuration.value,
+        ),
         (timer) {
           Log.logPrint("Update Follow Timer");
           loadData();
@@ -154,15 +162,16 @@ class FollowService extends GetxService {
   /// 获取最优并发数
   /// 根据 CPU 核心数和用户设置自动计算
   int getOptimalConcurrency() {
-    var userSetting = AppSettingsController.instance.updateFollowThreadCount.value;
+    var userSetting =
+        AppSettingsController.instance.updateFollowThreadCount.value;
 
     // 如果用户设置为 0，则自动根据 CPU 核心数计算
     if (userSetting == 0) {
       var cpuCount = Platform.numberOfProcessors;
       // 网络 I/O 密集型任务，并发数可以是 CPU 核心数的 2-3 倍
       var optimal = (cpuCount * 2.5).round();
-      // 限制在合理范围内（最少 4，最多 20）
-      return optimal.clamp(4, 20);
+      // 上限过低时，数十人的列表会被排成好几轮串行等待
+      return optimal.clamp(4, maxAutoConcurrency);
     }
 
     return userSetting;
@@ -190,7 +199,13 @@ class FollowService extends GetxService {
   }
 
   void startUpdateStatus() async {
-    updatedCount = 0;
+    // 定时器、事件总线、关注页下拉、直播间的关注面板都会触发这里。
+    // 没有互斥时多次触发会并发执行：同一批用户被重复请求，
+    // 且各自的完成状态互相踩踏，表现为刷新耗时翻倍或一直转圈。
+    if (updating.value) {
+      Log.logPrint("关注状态更新已在进行中，本次触发已跳过");
+      return;
+    }
     updating.value = true;
 
     var concurrency = getOptimalConcurrency();
@@ -217,7 +232,13 @@ class FollowService extends GetxService {
       workers.add(worker(i));
     }
 
-    await Future.wait(workers);
+    try {
+      await Future.wait(workers);
+    } finally {
+      // 无论中途是否出错都要复位，否则刷新入口会被永久锁死
+      filterData();
+      updating.value = false;
+    }
 
     Log.logPrint("关注状态更新完成");
   }
@@ -242,12 +263,6 @@ class FollowService extends GetxService {
       item.liveStatus.value = 0;
       item.liveStartTime = null;
       item.cover.value = null;
-    } finally {
-      updatedCount++;
-      if (updatedCount >= followList.length) {
-        filterData();
-        updating.value = false;
-      }
     }
   }
 
@@ -282,7 +297,8 @@ class FollowService extends GetxService {
         return;
       }
       var jsonFile = File(
-          '$dir/SimpleLive_${DateTime.now().millisecondsSinceEpoch ~/ 1000}.json');
+        '$dir/SimpleLive_${DateTime.now().millisecondsSinceEpoch ~/ 1000}.json',
+      );
       var jsonText = generateJson();
       await jsonFile.writeAsString(jsonText);
       SmartDialog.showToast("已导出关注列表");
@@ -328,9 +344,7 @@ class FollowService extends GetxService {
         title: const Text("导出为文本"),
         content: TextField(
           controller: TextEditingController(text: content),
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-          ),
+          decoration: const InputDecoration(border: OutlineInputBorder()),
           minLines: 5,
           maxLines: 8,
         ),
@@ -415,7 +429,7 @@ class FollowService extends GetxService {
             "userName": item.userName,
             "face": item.face,
             "addTime": item.addTime.toString(),
-            "tag": item.tag
+            "tag": item.tag,
           },
         )
         .toList();

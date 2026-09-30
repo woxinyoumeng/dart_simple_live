@@ -11,6 +11,12 @@ import 'package:simple_live_tv_app/app/log.dart';
 import 'package:simple_live_tv_app/modules/live_room/live_room_controller.dart';
 import 'package:simple_live_tv_app/modules/live_room/player/player_controls.dart';
 
+/// 恢复提示条在画面上的位置。
+///
+/// 顶部标题栏与底部播控栏的高度随屏幕比例变化，用相对位置把提示条放在画面
+/// 中部偏上，既不遮挡整屏，也不会压住任一条播控栏。
+const Alignment _recoverHintAlignment = Alignment(0, -0.6);
+
 class LiveRoomPage extends GetView<LiveRoomController> {
   const LiveRoomPage({Key? key}) : super(key: key);
 
@@ -153,7 +159,51 @@ class LiveRoomPage extends GetView<LiveRoomController> {
             ),
           ),
         ),
+        buildRecoverHint(),
       ],
+    );
+  }
+
+  /// 播放恢复期间的提示。
+  ///
+  /// 恢复链会把断流原因写进 errorMsg，但直播页此前没有渲染它，用户在恢复
+  /// 期间只能看到黑屏；重新打开播放时 errorMsg 会被清空，提示随恢复自动
+  /// 消失，所以这里只按「在直播且 errorMsg 非空」显示。
+  ///
+  /// 提示不接收点击：它盖在画面上，若吞掉遥控器确认键，用户就点不出播控栏。
+  Widget buildRecoverHint() {
+    return Obx(() {
+      final message = controller.errorMsg.value;
+      if (!controller.liveStatus.value || message.isEmpty) {
+        return const SizedBox.shrink();
+      }
+      return Align(
+        alignment: _recoverHintAlignment,
+        child: IgnorePointer(child: _RecoverHintBar(message: message)),
+      );
+    });
+  }
+}
+
+/// 播放恢复期间的轻量提示条。
+///
+/// 恢复期间画面可能是黑的，白字需要自带的半透明底色才读得清；提示条只包住
+/// 文案本身，不铺满整屏。
+class _RecoverHintBar extends StatelessWidget {
+  const _RecoverHintBar({required this.message});
+
+  /// 恢复链写下的提示文案。
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: AppStyle.edgeInsetsA8,
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        borderRadius: AppStyle.radius24,
+      ),
+      child: Text(message, style: AppStyle.textStyleWhite),
     );
   }
 }

@@ -647,8 +647,11 @@ Widget buildControls(
 
 Widget buildDanmuView(VideoState videoState, LiveRoomController controller) {
   var padding = MediaQuery.of(videoState.context).padding;
-  controller.danmakuView ??= DanmakuScreen(
-    key: controller.globalDanmuKey,
+  // 每次构建都新建 widget，不再缓存实例与全局 key。
+  // 弹幕视图会出现在全屏、小窗、竖屏三棵互不相交的子树中，
+  // 用全局 key 搬运同一个实例会造成 key 冲突或 Element 被卸载，
+  // 表现为切后台或进出全屏后弹幕彻底不再显示。
+  final danmakuScreen = DanmakuScreen(
     createdController: controller.initDanmakuController,
     option: DanmakuOption(
       fontSize: AppSettingsController.instance.danmuSize.value,
@@ -673,7 +676,7 @@ Widget buildDanmuView(VideoState videoState, LiveRoomController controller) {
                       AppSettingsController.instance.danmuBottomMargin.value,
                 )
               : EdgeInsets.zero,
-          child: controller.danmakuView!,
+          child: danmakuScreen,
         ),
       ),
     ),
@@ -724,7 +727,9 @@ void showLinesInfo(LiveRoomController controller) {
             Utils.hideRightDialog();
             //controller.currentLineIndex = i;
             //controller.setPlayer();
-            controller.changePlayLine(i);
+            // 用户主动换线路要补满重试预算：否则预算用尽后，用户这次手动换线路
+            // 也会立刻被上限拦住，只能靠刷新页面才能恢复
+            controller.changePlayLine(i, userInitiated: true);
           },
         );
       },

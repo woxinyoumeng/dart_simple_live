@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:simple_live_core/src/common/http_client.dart';
+import 'package:simple_live_core/src/common/core_log.dart';
 import 'package:simple_live_core/src/danmaku/douyu_danmaku.dart';
 import 'package:simple_live_core/src/interface/live_danmaku.dart';
 import 'package:simple_live_core/src/interface/live_site.dart';
@@ -104,9 +105,19 @@ class DouyuSite implements LiveSite {
       formUrlEncoded: true,
     );
 
+    // 斗鱼在风控/限流时会返回非预期结构（data 变成字符串等），直接按 Map
+    // 解析会抛出类型异常并中断播放地址刷新，这里先做校验与兼容处理。
+    var dataMap = result is Map ? result["data"] : null;
+    if (dataMap is! Map) {
+      CoreLog.d("[Douyu] 清晰度接口返回异常数据：$result");
+      throw Exception("斗鱼清晰度接口返回异常数据");
+    }
+
     var cdns = <String>[];
-    for (var item in result["data"]["cdnsWithName"]) {
-      cdns.add(item["cdn"].toString());
+    for (var item in _readList(dataMap["cdnsWithName"])) {
+      if (item is Map) {
+        cdns.add(item["cdn"].toString());
+      }
     }
 
     // 如果cdn以scdn开头，将其放到最后
@@ -119,7 +130,10 @@ class DouyuSite implements LiveSite {
       return 0;
     });
 
-    for (var item in result["data"]["multirates"]) {
+    for (var item in _readList(dataMap["multirates"])) {
+      if (item is! Map) {
+        continue;
+      }
       qualities.add(
         LivePlayQuality(
           quality: item["name"].toString(),
@@ -166,7 +180,23 @@ class DouyuSite implements LiveSite {
       formUrlEncoded: true,
     );
 
-    return "${result["data"]["rtmp_url"]}/${HtmlUnescape().convert(result["data"]["rtmp_live"].toString())}";
+    if (result is! Map || result["data"] is! Map) {
+      CoreLog.d("[Douyu] 播放地址接口返回异常数据：$result");
+      return "";
+    }
+    var playData = result["data"];
+    return "${playData["rtmp_url"]}/${HtmlUnescape().convert(playData["rtmp_live"].toString())}";
+  }
+
+  /// 读取接口返回的列表字段，兼容 List 与 Map 两种结构。
+  List<dynamic> _readList(dynamic value) {
+    if (value is List) {
+      return value;
+    }
+    if (value is Map) {
+      return value.values.toList();
+    }
+    return const [];
   }
 
   @override

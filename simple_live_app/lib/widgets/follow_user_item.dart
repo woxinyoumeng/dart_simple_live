@@ -6,6 +6,7 @@ import 'package:simple_live_app/app/log.dart';
 import 'package:simple_live_app/app/sites.dart';
 import 'package:simple_live_app/models/db/follow_user.dart';
 import 'package:simple_live_app/widgets/net_image.dart';
+
 import 'dart:ui' as ui;
 
 class FollowUserItem extends StatelessWidget {
@@ -26,21 +27,20 @@ class FollowUserItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var site = Sites.allSites[item.siteId]!;
-    if (item.liveStatus.value == 2) {
-      return _buildLiveCard(context, site);
-    }
-    return _buildListTile(context, site);
+    // 自身订阅直播状态：本组件是无状态组件，不订阅时状态变化只能等父级整表重建，
+    // 会出现"已经开播但卡片仍停留在未开播布局"的陈旧显示。
+    return Obx(() {
+      if (item.liveStatus.value == 2) {
+        return _buildLiveCard(context, site);
+      }
+      return _buildListTile(context, site);
+    });
   }
 
   Widget _buildListTile(BuildContext context, Site site) {
     return ListTile(
       contentPadding: AppStyle.edgeInsetsL16.copyWith(right: 4),
-      leading: NetImage(
-        item.face,
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-      ),
+      leading: NetImage(item.face, width: 48, height: 48, borderRadius: 24),
       title: Text.rich(
         TextSpan(
           text: item.userName,
@@ -70,8 +70,9 @@ class FollowUserItem extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.normal,
-                          color:
-                              item.liveStatus.value == 2 ? null : Colors.grey,
+                          color: item.liveStatus.value == 2
+                              ? null
+                              : Colors.grey,
                         ),
                       ),
                     ],
@@ -85,17 +86,11 @@ class FollowUserItem extends StatelessWidget {
       subtitle: Wrap(
         runSpacing: 1.0,
         children: [
-          Image.asset(
-            site.logo,
-            width: 20,
-          ),
+          Image.asset(site.logo, width: 20),
           AppStyle.hGap4,
           Text(
             site.name,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.grey,
-            ),
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
             overflow: TextOverflow.ellipsis,
           ),
           if (playing)
@@ -115,10 +110,7 @@ class FollowUserItem extends StatelessWidget {
               padding: AppStyle.edgeInsetsL8,
               child: Text(
                 '开播了${formatLiveDuration(item.liveStartTime)}',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey,
-                ),
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ),
         ],
@@ -126,20 +118,16 @@ class FollowUserItem extends StatelessWidget {
       trailing: playing
           ? const SizedBox(
               width: 64,
-              child: Center(
-                child: Icon(
-                  Icons.play_arrow,
-                ),
-              ),
+              child: Center(child: Icon(Icons.play_arrow)),
             )
           : (onRemove == null
-              ? null
-              : IconButton(
-                  onPressed: () {
-                    onRemove?.call();
-                  },
-                  icon: const Icon(Remix.dislike_line),
-                )),
+                ? null
+                : IconButton(
+                    onPressed: () {
+                      onRemove?.call();
+                    },
+                    icon: const Icon(Remix.dislike_line),
+                  )),
       onTap: onTap,
       onLongPress: onLongPress,
     );
@@ -168,9 +156,14 @@ class FollowUserItem extends StatelessWidget {
                     height: double.infinity,
                   ),
                   Positioned(
-                    left: 0, right: 0, bottom: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 3,
+                      ),
                       decoration: const BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.bottomCenter,
@@ -180,7 +173,11 @@ class FollowUserItem extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.fiber_manual_record, color: Colors.red, size: 8),
+                          const Icon(
+                            Icons.fiber_manual_record,
+                            color: Colors.red,
+                            size: 8,
+                          ),
                           AppStyle.hGap4,
                           const Text(
                             '直播',
@@ -190,7 +187,10 @@ class FollowUserItem extends StatelessWidget {
                           if (item.liveStartTime != null)
                             Text(
                               formatLiveDuration(item.liveStartTime),
-                              style: const TextStyle(color: Colors.white70, fontSize: 9),
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 9,
+                              ),
                             ),
                         ],
                       ),
@@ -203,12 +203,7 @@ class FollowUserItem extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(6, 3, 2, 3),
               child: Row(
                 children: [
-                  NetImage(
-                    item.face,
-                    width: 20,
-                    height: 20,
-                    borderRadius: 10,
-                  ),
+                  NetImage(item.face, width: 20, height: 20, borderRadius: 10),
                   AppStyle.hGap4,
                   Expanded(
                     child: Text(
@@ -224,16 +219,23 @@ class FollowUserItem extends StatelessWidget {
                       child: GestureDetector(
                         onLongPress: onLongPress,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 1,
+                          ),
                           margin: const EdgeInsets.only(right: 2),
                           decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primaryContainer,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .primaryContainer,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Icon(
                             Remix.price_tag_3_line,
                             size: 10,
-                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onPrimaryContainer,
                           ),
                         ),
                       ),

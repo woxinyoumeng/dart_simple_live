@@ -25,6 +25,21 @@ import 'package:simple_live_app/widgets/settings/settings_switch.dart';
 import 'package:simple_live_app/widgets/superchat_card.dart';
 import 'package:simple_live_core/simple_live_core.dart';
 
+/// 播放器浮层文字样式。
+///
+/// 「未开播」遮罩与播放恢复提示都浮在画面上，字号与颜色保持一致，两者交替
+/// 出现时观感才不会跳变。
+const TextStyle _playerOverlayTextStyle = TextStyle(
+  color: Colors.white,
+  fontSize: 16,
+);
+
+/// 恢复提示条在画面上的位置。
+///
+/// 顶部标题栏与底部播控栏的高度随设备与横竖屏变化，用相对位置把提示条放在
+/// 画面中部偏上，既不遮挡整屏，也不会压住任一条播控栏。
+const Alignment _recoverHintAlignment = Alignment(0, -0.6);
+
 class LiveRoomPage extends GetView<LiveRoomController> {
   const LiveRoomPage({Key? key}) : super(key: key);
 
@@ -114,16 +129,31 @@ class LiveRoomPage extends GetView<LiveRoomController> {
   Widget buildPageUI() {
     return OrientationBuilder(
       builder: (context, orientation) {
-        return Scaffold(
-          appBar: AppBar(
-            title: Obx(
-              () => Text(controller.detail.value?.title ?? "直播间"),
-            ),
-            actions: buildAppbarActions(context),
+        final page = Obx(
+          () => Scaffold(
+            appBar: controller.showPageChrome.value
+                ? AppBar(
+                    title: Obx(
+                      () => Text(controller.detail.value?.title ?? "直播间"),
+                    ),
+                    actions: buildAppbarActions(context),
+                  )
+                : null,
+            body: orientation == Orientation.portrait
+                ? buildPhoneUI(context)
+                : buildTabletUI(context),
           ),
-          body: orientation == Orientation.portrait
-              ? buildPhoneUI(context)
-              : buildTabletUI(context),
+        );
+        // 桌面端：鼠标离开窗口或停止移动后自动隐藏页面框架，让画面独占窗口；
+        // 移动端没有鼠标事件，保持始终显示。
+        if (Platform.isAndroid || Platform.isIOS) {
+          return page;
+        }
+        return MouseRegion(
+          onEnter: (_) => controller.revealPageChrome(),
+          onHover: (_) => controller.revealPageChrome(),
+          onExit: (_) => controller.hidePageChrome(),
+          child: page,
         );
       },
     );
@@ -138,7 +168,11 @@ class LiveRoomPage extends GetView<LiveRoomController> {
         ),
         buildUserProfile(context),
         buildMessageArea(),
-        buildBottomActions(context),
+        Obx(
+          () => controller.showPageChrome.value
+              ? buildBottomActions(context)
+              : const SizedBox.shrink(),
+        ),
       ],
     );
   }
@@ -168,75 +202,79 @@ class LiveRoomPage extends GetView<LiveRoomController> {
             ],
           ),
         ),
-        Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            border: Border(
-              top: BorderSide(
-                color: Colors.grey.withAlpha(25),
-              ),
-            ),
-          ),
-          padding: AppStyle.edgeInsetsV4.copyWith(
-            bottom: AppStyle.bottomBarHeight + 4,
-          ),
-          child: Row(
-            children: [
-              TextButton.icon(
-                style: TextButton.styleFrom(
-                  textStyle: const TextStyle(fontSize: 14),
-                ),
-                onPressed: controller.refreshRoom,
-                icon: const Icon(Remix.refresh_line),
-                label: const Text("刷新"),
-              ),
-              AppStyle.hGap4,
-              Obx(
-                () => controller.followed.value
-                    ? TextButton.icon(
-                        style: TextButton.styleFrom(
-                          textStyle: const TextStyle(fontSize: 14),
-                        ),
-                        onPressed: controller.removeFollowUser,
-                        icon: const Icon(Remix.heart_fill),
-                        label: const Text("取消关注"),
-                      )
-                    : TextButton.icon(
-                        style: TextButton.styleFrom(
-                          textStyle: const TextStyle(fontSize: 14),
-                        ),
-                        onPressed: controller.followUser,
-                        icon: const Icon(Remix.heart_line),
-                        label: const Text("关注"),
+        Obx(
+          () => controller.showPageChrome.value
+              ? Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    border: Border(
+                      top: BorderSide(
+                        color: Colors.grey.withAlpha(25),
                       ),
-              ),
-              const Expanded(child: Center()),
-              TextButton.icon(
-                style: TextButton.styleFrom(
-                  textStyle: const TextStyle(fontSize: 14),
-                ),
-                onPressed: controller.share,
-                icon: const Icon(Remix.share_line),
-                label: const Text("分享"),
-              ),
-              TextButton.icon(
-                style: TextButton.styleFrom(
-                  textStyle: const TextStyle(fontSize: 14),
-                ),
-                onPressed: controller.copyUrl,
-                icon: const Icon(Remix.file_copy_line),
-                label: const Text("复制链接"),
-              ),
-              TextButton.icon(
-                style: TextButton.styleFrom(
-                  textStyle: const TextStyle(fontSize: 14),
-                ),
-                onPressed: controller.copyPlayUrl,
-                icon: const Icon(Remix.file_copy_line),
-                label: const Text("复制播放直链"),
-              ),
-            ],
-          ),
+                    ),
+                  ),
+                  padding: AppStyle.edgeInsetsV4.copyWith(
+                    bottom: AppStyle.bottomBarHeight + 4,
+                  ),
+                  child: Row(
+                    children: [
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          textStyle: const TextStyle(fontSize: 14),
+                        ),
+                        onPressed: controller.refreshRoom,
+                        icon: const Icon(Remix.refresh_line),
+                        label: const Text("刷新"),
+                      ),
+                      AppStyle.hGap4,
+                      Obx(
+                        () => controller.followed.value
+                            ? TextButton.icon(
+                                style: TextButton.styleFrom(
+                                  textStyle: const TextStyle(fontSize: 14),
+                                ),
+                                onPressed: controller.removeFollowUser,
+                                icon: const Icon(Remix.heart_fill),
+                                label: const Text("取消关注"),
+                              )
+                            : TextButton.icon(
+                                style: TextButton.styleFrom(
+                                  textStyle: const TextStyle(fontSize: 14),
+                                ),
+                                onPressed: controller.followUser,
+                                icon: const Icon(Remix.heart_line),
+                                label: const Text("关注"),
+                              ),
+                      ),
+                      const Expanded(child: Center()),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          textStyle: const TextStyle(fontSize: 14),
+                        ),
+                        onPressed: controller.share,
+                        icon: const Icon(Remix.share_line),
+                        label: const Text("分享"),
+                      ),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          textStyle: const TextStyle(fontSize: 14),
+                        ),
+                        onPressed: controller.copyUrl,
+                        icon: const Icon(Remix.file_copy_line),
+                        label: const Text("复制链接"),
+                      ),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          textStyle: const TextStyle(fontSize: 14),
+                        ),
+                        onPressed: controller.copyPlayUrl,
+                        icon: const Icon(Remix.file_copy_line),
+                        label: const Text("复制播放直链"),
+                      ),
+                    ],
+                  ),
+                )
+              : const SizedBox.shrink(),
         ),
       ],
     );
@@ -281,13 +319,34 @@ class LiveRoomPage extends GetView<LiveRoomController> {
             child: const Center(
               child: Text(
                 "未开播",
-                style: TextStyle(fontSize: 16, color: Colors.white),
+                style: _playerOverlayTextStyle,
               ),
             ),
           ),
         ),
+        buildRecoverHint(),
       ],
     );
+  }
+
+  /// 播放恢复期间的提示。
+  ///
+  /// 恢复链会把断流原因写进 errorMsg，但直播页此前没有渲染它，用户在恢复
+  /// 期间只能看到黑屏；重新打开播放时 errorMsg 会被清空，提示随恢复自动
+  /// 消失，所以这里只按「在直播且 errorMsg 非空」显示。
+  ///
+  /// 提示不接收点击：它盖在画面上，若吞掉手势，用户就点不出播控栏。
+  Widget buildRecoverHint() {
+    return Obx(() {
+      final message = controller.errorMsg.value;
+      if (!controller.liveStatus.value || message.isEmpty) {
+        return const SizedBox.shrink();
+      }
+      return Align(
+        alignment: _recoverHintAlignment,
+        child: IgnorePointer(child: _RecoverHintBar(message: message)),
+      );
+    });
   }
 
   Widget buildUserProfile(BuildContext context) {
@@ -929,5 +988,28 @@ class LiveRoomPage extends GetView<LiveRoomController> {
       return "${m.toString().padLeft(2, '0')}分钟${s.toString().padLeft(2, '0')}秒";
     }
     return "${s.toString().padLeft(2, '0')}秒";
+  }
+}
+
+/// 播放恢复期间的轻量提示条。
+///
+/// 恢复期间画面可能是黑的，白字需要自带的半透明底色才读得清；提示条只包住
+/// 文案本身，不铺满整屏。
+class _RecoverHintBar extends StatelessWidget {
+  const _RecoverHintBar({required this.message});
+
+  /// 恢复链写下的提示文案。
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: AppStyle.edgeInsetsA8,
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        borderRadius: AppStyle.radius24,
+      ),
+      child: Text(message, style: _playerOverlayTextStyle),
+    );
   }
 }

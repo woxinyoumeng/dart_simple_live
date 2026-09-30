@@ -1,12 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:remixicon/remixicon.dart';
 import 'package:simple_live_app/app/app_style.dart';
 import 'package:simple_live_app/app/log.dart';
 import 'package:simple_live_app/app/utils.dart';
 import 'package:simple_live_app/routes/route_path.dart';
+import 'package:simple_live_app/services/cache_service.dart';
 import 'package:simple_live_app/services/signalr_service.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -207,6 +209,15 @@ class MinePage extends StatelessWidget {
                     Get.toNamed(RoutePath.kSettingsOther);
                   },
                 ),
+                ListTile(
+                  leading: const Icon(Remix.delete_bin_line),
+                  title: const Text("清理缓存"),
+                  trailing: const Icon(
+                    Icons.chevron_right,
+                    color: Colors.grey,
+                  ),
+                  onTap: () => _cleanCache(),
+                ),
                 if (kDebugMode)
                   ListTile(
                     leading: const Icon(Remix.apps_line),
@@ -277,5 +288,32 @@ class MinePage extends StatelessWidget {
         children: children,
       ),
     );
+  }
+
+  /// 清理图片与日志缓存。
+  ///
+  /// 清理期间用 loading 遮罩提示，避免界面看起来像卡住；
+  /// 失败路径也要收起遮罩，否则界面会一直停在加载态。
+  static Future<void> _cleanCache() async {
+    final confirmed = await Utils.showAlertDialog(
+      "将清理网络图片缓存与运行日志，不会影响关注列表和历史记录。",
+      title: "清理缓存",
+    );
+    if (!confirmed) {
+      return;
+    }
+    final cacheService = CacheService.instance;
+    SmartDialog.showLoading(msg: "正在清理缓存");
+    try {
+      final result = await cacheService.clean();
+      SmartDialog.showToast(
+        "已释放 ${cacheService.formatBytes(result.releasedBytes)}",
+      );
+    } catch (e) {
+      Log.w("清理缓存失败：$e");
+      SmartDialog.showToast("清理缓存失败：$e");
+    } finally {
+      SmartDialog.dismiss(status: SmartStatus.loading);
+    }
   }
 }

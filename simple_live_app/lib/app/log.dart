@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
@@ -21,8 +22,47 @@ class Log {
   }
 
   static void writeLog(content, [Level level = Level.info]) {
-    logFileWriter
-        ?.write("[${level.name.toUpperCase()}] $_currentTime：$content");
+    logFileWriter?.write(
+      "[${level.name.toUpperCase()}] $_currentTime：$content",
+    );
+  }
+
+  /// 播放诊断日志的文件名，与 LogFileWriter 同放在 log 目录下。
+  static const String _diagnoseFileName = "playback-diagnose.log";
+
+  /// 播放诊断日志的体积上限，超过后先清空再写，避免无限增长。
+  static const int _diagnoseMaxBytes = 256 * 1024;
+
+  /// 写入播放诊断日志。
+  ///
+  /// 与 writeLog 不同，这条通道不受「日志开关」设置影响：播放中断发生在用户
+  /// 未开日志时，此时若没有现场证据就无法定位根因。文件位于 log 目录下的
+  /// playback-diagnose.log，CacheService 清理日志时会一并删除。
+  static void writeDiagnose(String content) {
+    // 不阻塞调用方：诊断只是取证，失败也不应影响播放恢复流程
+    unawaited(_appendDiagnose(content));
+  }
+
+  /// 追加写入诊断日志，超过上限时先清空旧内容。
+  static Future<void> _appendDiagnose(String content) async {
+    try {
+      final logDir = Directory(
+        "${(await getApplicationSupportDirectory()).path}/log",
+      );
+      if (!await logDir.exists()) {
+        await logDir.create();
+      }
+      final file = File("${logDir.path}/$_diagnoseFileName");
+      if (await file.exists() && await file.length() > _diagnoseMaxBytes) {
+        await file.writeAsString("");
+      }
+      await file.writeAsString(
+        "[$_currentTime] $content\n",
+        mode: FileMode.append,
+      );
+    } catch (e) {
+      Log.w("写入播放诊断日志失败：$e");
+    }
   }
 
   static RxList<DebugLogModel> debugLogs = <DebugLogModel>[].obs;
@@ -66,13 +106,15 @@ class Log {
     addDebugLog(message, Colors.blue);
     logger.i("${DateTime.now().toString()}\n$message");
     if (writeFile) {
-      logFileWriter?.write("[INFO] $_currentTime：$message");
       writeLog(message, Level.info);
     }
   }
 
-  static void e(String message, StackTrace stackTrace,
-      [bool writeFile = true]) {
+  static void e(
+    String message,
+    StackTrace stackTrace, [
+    bool writeFile = true,
+  ]) {
     addDebugLog('$message\r\n\r\n$stackTrace', Colors.red);
     logger.e("${DateTime.now().toString()}\n$message", stackTrace: stackTrace);
     if (writeFile) {
@@ -138,7 +180,8 @@ class LogFileWriter {
     write("Version: ${Platform.operatingSystemVersion}");
     write("Local: ${Platform.localeName}");
     write(
-        "App Version: ${Utils.packageInfo.version}+${Utils.packageInfo.buildNumber}");
+      "App Version: ${Utils.packageInfo.version}+${Utils.packageInfo.buildNumber}",
+    );
     if (Platform.isAndroid) {
       write((await deviceInfo.androidInfo).data.toString());
     } else if (Platform.isIOS) {

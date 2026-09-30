@@ -62,7 +62,8 @@ class FollowSettingsPage extends GetView<AppSettingsController> {
 
                     return SettingsAction(
                       title: "更新并发数",
-                      subtitle: "0 = 自动根据 CPU 核心数优化（推荐），或手动设置 1-20",
+                      subtitle:
+                          "0 = 自动根据 CPU 核心数优化（推荐），或手动设置 1-${FollowService.maxAutoConcurrency}",
                       value: displayValue,
                       onTap: () {
                         showConcurrencyDialog();
@@ -106,7 +107,8 @@ class FollowSettingsPage extends GetView<AppSettingsController> {
   void showConcurrencyDialog() {
     var currentValue = controller.updateFollowThreadCount.value;
     var cpuCount = Platform.numberOfProcessors;
-    var autoValue = (cpuCount * 2.5).round().clamp(4, 20);
+    var autoValue =
+        (cpuCount * 2.5).round().clamp(4, FollowService.maxAutoConcurrency);
 
     Get.dialog(
       AlertDialog(
