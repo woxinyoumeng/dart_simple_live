@@ -10,6 +10,14 @@
         android:banner="@mipmap/ic_banner"
         android:networkSecurityConfig="@xml/network_security_config"
         android:usesCleartextTraffic="true">
+
+        <!-- 视频渲染后端。华为智慧屏这类设备的 Vulkan 驱动在渲染播放器提供的外部
+             纹理时会失败（Flutter 引擎同类问题 issue 187419：SurfaceProducer 给出的
+             Surface 拿不到可用的 EGL 上下文），表现为直播只有声音、没有画面。Impeller
+             的 OpenGLES 后端走另一条纹理/EGL 路径，在这类设备上能正常出画。 -->
+        <meta-data
+            android:name="io.flutter.embedding.android.ImpellerBackend"
+            android:value="opengles" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
