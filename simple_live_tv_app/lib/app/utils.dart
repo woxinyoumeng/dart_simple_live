@@ -254,4 +254,35 @@ class Utils {
     }
     return num.toString();
   }
+
+  /// 每分钟的秒数
+  static const int secondsPerMinute = 60;
+
+  /// 每小时的秒数
+  static const int secondsPerHour = 3600;
+
+  /// 每秒的毫秒数
+  static const int millisecondsPerSecond = 1000;
+
+  /// 把开播时间戳换算成「已开播时长」文本。
+  ///
+  /// 时间戳来自直播平台，可能是空串、"0" 或非法值；这些情况统一返回空串，
+  /// 由调用方决定是否展示，避免卡片上出现占位噪音。
+  static String liveDurationToString(String? startTimeStampString) {
+    final startTimeStamp = int.tryParse(startTimeStampString ?? "");
+    if (startTimeStamp == null || startTimeStamp <= 0) {
+      return "";
+    }
+    final durationInSeconds =
+        DateTime.now().millisecondsSinceEpoch ~/ millisecondsPerSecond -
+            startTimeStamp;
+    if (durationInSeconds < secondsPerMinute) {
+      return "不足1分钟";
+    }
+    final hours = durationInSeconds ~/ secondsPerHour;
+    final minutes = (durationInSeconds % secondsPerHour) ~/ secondsPerMinute;
+    final hourText = hours > 0 ? '$hours小时' : '';
+    final minuteText = minutes > 0 ? '$minutes分钟' : '';
+    return '$hourText$minuteText';
+  }
 }

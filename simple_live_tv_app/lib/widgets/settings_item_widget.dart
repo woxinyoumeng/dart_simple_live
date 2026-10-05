@@ -30,22 +30,16 @@ class SettingsItemWidget extends StatelessWidget {
       borderRadius: AppStyle.radius16,
       onLeftKey: () {
         if (items.isEmpty) return KeyEventResult.handled;
-        if (items.keys.first == value) {
-          onChanged(items.keys.last);
-        } else {
-          onChanged(
-              items.keys.elementAt(items.keys.toList().indexOf(value) - 1));
-        }
+        onChanged(
+          pickAdjacentItem(items: items, value: value, forward: false),
+        );
         return KeyEventResult.handled;
       },
       onRightKey: () {
         if (items.isEmpty) return KeyEventResult.handled;
-        if (items.keys.last == value) {
-          onChanged(items.keys.first);
-        } else {
-          onChanged(
-              items.keys.elementAt(items.keys.toList().indexOf(value) + 1));
-        }
+        onChanged(
+          pickAdjacentItem(items: items, value: value, forward: true),
+        );
         return KeyEventResult.handled;
       },
       onTap: () {
@@ -74,7 +68,7 @@ class SettingsItemWidget extends StatelessWidget {
               ConstrainedBox(
                 constraints: BoxConstraints(minWidth: 120.w),
                 child: Text(
-                  items[value] ?? '',
+                  _valueText,
                   style: foucsNode.isFoucsed.value
                       ? AppStyle.textStyleBlack
                       : AppStyle.textStyleWhite,
@@ -96,6 +90,29 @@ class SettingsItemWidget extends StatelessWidget {
         ),
       ),
     );
+  }
+  /// 当前值的显示文本；当前值不在选项内时退回值本身，避免显示空白。
+  String get _valueText => items[value] ?? value?.toString() ?? '';
+
+  /// 取当前值的相邻选项，首尾循环。
+  ///
+  /// 抽成静态纯函数是因为「当前值不在选项列表内」必须被安全处理：该项默认值
+  /// 可能来自另一个平台（如 TV 端在桌面调试时读到 libmpv），此时按下左右键
+  /// 若按「已收录」计算下标就会越界崩溃。未收录时向右取第一项、向左取最后一项。
+  static dynamic pickAdjacentItem({
+    required Map<dynamic, String> items,
+    required dynamic value,
+    required bool forward,
+  }) {
+    final keys = items.keys.toList();
+    final index = keys.indexOf(value);
+    if (index < 0) {
+      return forward ? keys.first : keys.last;
+    }
+    if (forward) {
+      return index == keys.length - 1 ? keys.first : keys[index + 1];
+    }
+    return index == 0 ? keys.last : keys[index - 1];
   }
 
   void showSettingsDialog() {

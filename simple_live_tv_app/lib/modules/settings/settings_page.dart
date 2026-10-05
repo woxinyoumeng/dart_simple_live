@@ -4,10 +4,13 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:simple_live_tv_app/app/app_focus_node.dart';
 import 'package:simple_live_tv_app/app/app_style.dart';
+import 'package:simple_live_tv_app/app/log.dart';
 import 'package:simple_live_tv_app/app/controller/app_settings_controller.dart';
 import 'package:simple_live_tv_app/app/utils.dart';
 import 'package:simple_live_tv_app/modules/settings/settings_controller.dart';
+import 'package:simple_live_tv_app/routes/route_path.dart';
 import 'package:simple_live_tv_app/services/bilibili_account_service.dart';
+import 'package:simple_live_tv_app/services/cache_service.dart';
 import 'package:simple_live_tv_app/services/follow_user_service.dart';
 import 'package:simple_live_tv_app/widgets/app_scaffold.dart';
 import 'package:simple_live_tv_app/widgets/button/highlight_button.dart';
@@ -202,6 +205,55 @@ class SettingsPage extends GetView<SettingsController> {
             value: AppSettingsController.instance.qualityLevel.value,
             onChanged: (e) {
               AppSettingsController.instance.setQualityLevel(e);
+            },
+          ),
+        ),
+        AppStyle.vGap24,
+        Obx(
+          () => SettingsItemWidget(
+            foucsNode: controller.customPlayerOutputFocusNode,
+            autofocus:
+                controller.customPlayerOutputFocusNode.isFoucsed.value,
+            title: "自定义输出驱动",
+            items: const {
+              0: "关",
+              1: "开",
+            },
+            value: AppSettingsController.instance.customPlayerOutput.value
+                ? 1
+                : 0,
+            onChanged: (e) {
+              AppSettingsController.instance
+                  .setCustomPlayerOutput(e == 1);
+            },
+          ),
+        ),
+        AppStyle.vGap24,
+        Obx(
+          () => SettingsItemWidget(
+            foucsNode: controller.videoOutputDriverFocusNode,
+            autofocus:
+                controller.videoOutputDriverFocusNode.isFoucsed.value,
+            title: "视频输出驱动",
+            items: controller.videoOutputDrivers,
+            value: AppSettingsController.instance.videoOutputDriver.value,
+            onChanged: (e) {
+              AppSettingsController.instance.setVideoOutputDriver(e);
+            },
+          ),
+        ),
+        AppStyle.vGap24,
+        Obx(
+          () => SettingsItemWidget(
+            foucsNode: controller.videoHardwareDecoderFocusNode,
+            autofocus:
+                controller.videoHardwareDecoderFocusNode.isFoucsed.value,
+            title: "硬件解码器",
+            items: controller.videoHardwareDecoders,
+            value:
+                AppSettingsController.instance.videoHardwareDecoder.value,
+            onChanged: (e) {
+              AppSettingsController.instance.setVideoHardwareDecoder(e);
             },
           ),
         ),
@@ -486,9 +538,53 @@ class SettingsPage extends GetView<SettingsController> {
           focusNode: controller.versionFocusNode,
           title: "版本",
           subtitle: "v${Utils.packageInfo.version}",
-          onTap: ()=>{},
+          onTap: () => {},
+        ),
+        AppStyle.vGap24,
+        HighlightListTile(
+          focusNode: controller.cacheFocusNode,
+          title: "清理缓存",
+          subtitle: "清理图片缓存与日志，不影响关注和历史记录",
+          onTap: cleanCache,
+        ),
+
+        AppStyle.vGap24,
+        HighlightListTile(
+          focusNode: controller.logFocusNode,
+          title: "运行日志",
+          subtitle: "查看最近的应用日志，排查播放、加载问题",
+          onTap: () {
+            Get.toNamed(RoutePath.kLog);
+          },
         ),
       ],
     );
+  }
+
+  /// 清理图片与日志缓存。
+  ///
+  /// 清理期间用 loading 遮罩提示，避免界面看起来像卡住；
+  /// 失败路径也要收起遮罩，否则界面会一直停在加载态。
+  Future<void> cleanCache() async {
+    final confirmed = await Utils.showAlertDialog(
+      "将清理网络图片缓存与运行日志，不会影响关注列表和历史记录。",
+      title: "清理缓存",
+    );
+    if (!confirmed) {
+      return;
+    }
+    final cacheService = CacheService.instance;
+    SmartDialog.showLoading(msg: "正在清理缓存");
+    try {
+      final result = await cacheService.clean();
+      SmartDialog.showToast(
+        "已释放 ${cacheService.formatBytes(result.releasedBytes)}",
+      );
+    } catch (e) {
+      Log.w("清理缓存失败：$e");
+      SmartDialog.showToast("清理缓存失败：$e");
+    } finally {
+      SmartDialog.dismiss(status: SmartStatus.loading);
+    }
   }
 }

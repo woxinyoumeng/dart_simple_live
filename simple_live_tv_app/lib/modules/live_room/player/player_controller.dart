@@ -239,16 +239,23 @@ mixin PlayerMixin {
   /// 视频控制器
   late final videoController = VideoController(
     player,
-    configuration: AppSettingsController.instance.playerCompatMode.value
-        ? const VideoControllerConfiguration(
-            vo: 'mediacodec_embed',
-            hwdec: 'mediacodec',
+    // 优先使用用户自定义的 --vo / --hwdec；未自定义时按「兼容模式」与
+    // 「硬件解码」推导，保证黑屏等兼容性问题有可切换的出口
+    configuration: AppSettingsController.instance.customPlayerOutput.value
+        ? VideoControllerConfiguration(
+            vo: AppSettingsController.instance.videoOutputDriver.value,
+            hwdec: AppSettingsController.instance.videoHardwareDecoder.value,
           )
-        : VideoControllerConfiguration(
-            enableHardwareAcceleration:
-                AppSettingsController.instance.hardwareDecode.value,
-            androidAttachSurfaceAfterVideoParameters: false,
-          ),
+        : AppSettingsController.instance.playerCompatMode.value
+            ? const VideoControllerConfiguration(
+                vo: 'mediacodec_embed',
+                hwdec: 'mediacodec',
+              )
+            : VideoControllerConfiguration(
+                enableHardwareAcceleration:
+                    AppSettingsController.instance.hardwareDecode.value,
+                androidAttachSurfaceAfterVideoParameters: false,
+              ),
   );
 }
 mixin PlayerStateMixin on PlayerMixin {
@@ -460,6 +467,35 @@ class PlayerController extends BaseController
   /// 播放停滞检测定时器。
   Timer? _playbackWatchdogTimer;
 
+  /// 起播后采集一次播放链路诊断的延迟。
+  ///
+  /// 画面要等 mpv 收到视频参数、把 Surface 交给解码器之后才会出现；只凭
+  /// 「有声音」分不清是「视频没接进显示层」还是「接进去了但渲染失败」。
+  /// TV 上通常看不到 logcat，所以把 mpv 的这几项属性写进应用内日志，
+  /// 用户打开「运行日志」页就能读出来。
+  static const Duration _playbackDiagnosticsDelay = Duration(seconds: 10);
+
+  /// 播放链路诊断定时器。
+  Timer? _playbackDiagnosticsTimer;
+
+  /// mpv 视频输出驱动属性名。取到 null 表示画面没有接进显示层。
+  static const String _videoOutputProperty = "vo";
+
+  /// mpv 视频输出 Surface 句柄属性名。为 0 表示还没有可用的 Surface。
+  static const String _surfaceHandleProperty = "wid";
+
+  /// mpv 视频编码格式属性名。
+  static const String _videoFormatProperty = "video-format";
+
+  /// mpv 当前生效的硬解方式属性名。
+  static const String _hwdecProperty = "hwdec-current";
+
+  /// mpv 视频宽度属性名。
+  static const String _videoWidthProperty = "video-params/w";
+
+  /// mpv 视频高度属性名。
+  static const String _videoHeightProperty = "video-params/h";
+
   /// 上一次采样到的播放位置。
   Duration? _lastPlaybackProgress;
 
@@ -530,6 +566,7 @@ class PlayerController extends BaseController
   /// 新的播放刚开始就被判定为停滞，白白耗掉一次重试机会。
   void startPlaybackWatchdog() {
     _playbackWatchdogTimer?.cancel();
+    _schedulePlaybackDiagnostics();
     _lastPlaybackProgress = null;
     _playbackWatchdogStallCount = 0;
     _playbackNoDataSampleCount = 0;
@@ -551,6 +588,8 @@ class PlayerController extends BaseController
   void stopPlaybackWatchdog() {
     _playbackWatchdogTimer?.cancel();
     _playbackWatchdogTimer = null;
+    _playbackDiagnosticsTimer?.cancel();
+    _playbackDiagnosticsTimer = null;
   }
 
   /// 是否仍处于打开播放后的停滞判定宽限期内。
@@ -727,6 +766,36 @@ class PlayerController extends BaseController
       Log.logPrint(e);
       return _unknownPropertyValue;
     }
+  }
+
+  /// 安排一次播放链路诊断。
+  ///
+  /// 每次打开播放都重新计时：诊断只对「这一轮播放」有意义，上一轮的结果
+  /// 既可能已经过期，留着还会把新的诊断日志淹掉。
+  void _schedulePlaybackDiagnostics() {
+    _playbackDiagnosticsTimer?.cancel();
+    _playbackDiagnosticsTimer = Timer(
+      _playbackDiagnosticsDelay,
+      () => unawaited(_logPlaybackDiagnostics()),
+    );
+  }
+
+  /// 读取并记录播放链路的关键属性。
+  ///
+  /// vo 取不到有效值说明视频根本没有接进显示层，此时音频照常播放，表现
+  /// 就是「只有声音没有画面」；vo 正常却依旧黑屏，问题就在渲染层而不是
+  /// 播放链路，两者的排查方向完全不同。
+  Future<void> _logPlaybackDiagnostics() async {
+    final vo = await _readPlayerProperty(_videoOutputProperty);
+    final wid = await _readPlayerProperty(_surfaceHandleProperty);
+    final videoFormat = await _readPlayerProperty(_videoFormatProperty);
+    final hwdec = await _readPlayerProperty(_hwdecProperty);
+    final width = await _readPlayerProperty(_videoWidthProperty);
+    final height = await _readPlayerProperty(_videoHeightProperty);
+    Log.w(
+      "播放诊断：vo=$vo wid=$wid 编码=$videoFormat hwdec=$hwdec "
+      "分辨率=${width}x$height",
+    );
   }
 
   void mediaEnd() {}

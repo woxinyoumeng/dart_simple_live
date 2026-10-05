@@ -40,6 +40,30 @@ class SettingsController extends BaseController
   var compatibleModeFocusNode = AppFocusNode();
   var scaleFoucsNode = AppFocusNode();
   var defaultQualityFocusNode = AppFocusNode();
+  var customPlayerOutputFocusNode = AppFocusNode();
+  var videoOutputDriverFocusNode = AppFocusNode();
+  var videoHardwareDecoderFocusNode = AppFocusNode();
+
+  /// 视频输出驱动（--vo）。
+  ///
+  /// TV 端运行在 Android 上，只列出 Android 可用的驱动：桌面平台专有的
+  /// xv/vdpau/direct3d 等在这里选择了也不生效，只会徒增遥控器操作成本。
+  var videoOutputDrivers = {
+    "gpu": "gpu",
+    "gpu-next": "gpu-next",
+    "mediacodec_embed": "mediacodec_embed",
+    "null": "null（不渲染画面）",
+  };
+
+  /// 硬件解码器（--hwdec），同样只保留 Android 可用的取值。
+  var videoHardwareDecoders = {
+    "no": "no（纯软解）",
+    "auto": "auto",
+    "auto-safe": "auto-safe",
+    "yes": "yes",
+    "mediacodec": "mediacodec",
+    "mediacodec-copy": "mediacodec-copy",
+  };
   var danmakuFoucsNode = AppFocusNode();
   var danmakuSizeFoucsNode = AppFocusNode();
   var danmakuSpeedFoucsNode = AppFocusNode();
@@ -53,6 +77,8 @@ class SettingsController extends BaseController
 
   var bilibiliFoucsNode = AppFocusNode();
   var versionFocusNode = AppFocusNode();
+  var cacheFocusNode = AppFocusNode();
+  var logFocusNode = AppFocusNode();
   void bilibiliTap() async {
     if (BiliBiliAccountService.instance.logined.value) {
       var result = await Utils.showAlertDialog("确定要退出哔哩哔哩账号吗？", title: "退出登录");

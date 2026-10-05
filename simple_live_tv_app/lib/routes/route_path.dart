@@ -30,6 +30,9 @@ class RoutePath {
   /// 设置
   static const kSettings = "/settings";
 
+  /// 运行日志
+  static const kLog = "/settings/log";
+
   /// 热门直播
   static const kHotLive = "/hot_live";
 

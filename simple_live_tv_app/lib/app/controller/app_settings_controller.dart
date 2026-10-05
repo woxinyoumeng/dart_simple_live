@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:simple_live_tv_app/services/local_storage_service.dart';
 
 import 'package:get/get.dart';
@@ -90,6 +92,19 @@ class AppSettingsController extends GetxController {
 
     playerBufferSize.value = LocalStorageService.instance
         .getValue(LocalStorageService.kPlayerBufferSize, 32);
+
+    customPlayerOutput.value = LocalStorageService.instance
+        .getValue(LocalStorageService.kCustomPlayerOutput, false);
+
+    videoOutputDriver.value = LocalStorageService.instance.getValue(
+      LocalStorageService.kVideoOutputDriver,
+      Platform.isAndroid ? "gpu" : "libmpv",
+    );
+
+    videoHardwareDecoder.value = LocalStorageService.instance.getValue(
+      LocalStorageService.kVideoHardwareDecoder,
+      Platform.isAndroid ? "auto-safe" : "auto",
+    );
 
     autoUpdateFollowEnable.value = LocalStorageService.instance
         .getValue(LocalStorageService.kAutoUpdateFollowEnable, true);
@@ -217,6 +232,28 @@ class AppSettingsController extends GetxController {
     playerBufferSize.value = e;
     LocalStorageService.instance
         .setValue(LocalStorageService.kPlayerBufferSize, e);
+  }
+
+  /// 是否使用自定义的 --vo / --hwdec（关闭时由「硬件解码」「兼容模式」决定）
+  var customPlayerOutput = false.obs;
+  void setCustomPlayerOutput(bool e) {
+    customPlayerOutput.value = e;
+    LocalStorageService.instance
+        .setValue(LocalStorageService.kCustomPlayerOutput, e);
+  }
+
+  var videoOutputDriver = "".obs;
+  void setVideoOutputDriver(String e) {
+    videoOutputDriver.value = e;
+    LocalStorageService.instance
+        .setValue(LocalStorageService.kVideoOutputDriver, e);
+  }
+
+  var videoHardwareDecoder = "".obs;
+  void setVideoHardwareDecoder(String e) {
+    videoHardwareDecoder.value = e;
+    LocalStorageService.instance
+        .setValue(LocalStorageService.kVideoHardwareDecoder, e);
   }
 
   var playerAutoPause = false.obs;

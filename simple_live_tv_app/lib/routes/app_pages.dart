@@ -23,6 +23,7 @@ import 'package:simple_live_tv_app/modules/search/room/search_room_controller.da
 import 'package:simple_live_tv_app/modules/search/room/search_room_page.dart';
 import 'package:simple_live_tv_app/modules/settings/settings_controller.dart';
 import 'package:simple_live_tv_app/modules/settings/settings_page.dart';
+import 'package:simple_live_tv_app/modules/settings/log_page.dart';
 import 'package:simple_live_tv_app/modules/sync/sync_controller.dart';
 import 'package:simple_live_tv_app/modules/sync/sync_page.dart';
 
@@ -84,6 +85,11 @@ class AppPages {
       bindings: [
         BindingsBuilder.put(() => SettingsController()),
       ],
+    ),
+    // 运行日志
+    GetPage(
+      name: RoutePath.kLog,
+      page: () => const LogPage(),
     ),
     // 历史记录
     GetPage(

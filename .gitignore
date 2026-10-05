@@ -9,3 +9,6 @@ simple_live_tv_app/.vscode/settings.json
 !.crew/graphs/
 !.crew/artifacts/.gitkeep
 !.crew/graphs/.gitkeep
+
+# 打包产物集中目录（体积大，不入库）
+/pkg/
