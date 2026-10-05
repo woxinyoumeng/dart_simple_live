@@ -105,21 +105,67 @@ class FollowUserService extends BasePageController<FollowUser> {
     await Future.wait(tasks);
   }
 
+  /// 刷新单个房间的直播状态与封面。
+  ///
+  /// 状态与详情分两次请求、各自容错：详情只用来补封面和开播时间，它失败时
+  /// 不能把已经查到的「正在直播」一起抹掉——否则直播中的房间会退回未开播
+  /// 卡片，用户看到的就是「封面没了、直播中标记也没了」。
   Future updateLiveStatus(FollowUser item) async {
     try {
-      var site = Sites.allSites[item.siteId]!;
-      item.liveStatus.value =
-          (await site.liveSite.getLiveStatus(roomId: item.roomId)) ? 2 : 1;
-      //sortList();
-      //updateLivingList();
-    } catch (e) {
-      Log.logPrint(e);
+      await _refreshLiveStatus(item);
     } finally {
-      updatedCount++;
-      if (updatedCount >= list.length) {
-        sortList();
-        updating.value = false;
-      }
+      _markUpdated();
+    }
+  }
+
+  /// 查询并写入直播状态、封面与开播时间。
+  Future<void> _refreshLiveStatus(FollowUser item) async {
+    // 关注列表的数据来自本地库，平台标识可能是旧版本写入的；取不到站点时
+    // 直接按未知处理，避免在刷新线程里抛异常中断整批更新
+    var site = Sites.allSites[item.siteId];
+    if (site == null) {
+      Log.w("未知平台，跳过状态刷新：${item.siteId}");
+      item.liveStatus.value = 0;
+      item.liveStartTime = null;
+      item.cover.value = null;
+      return;
+    }
+    final bool isLiving;
+    try {
+      isLiving = await site.liveSite.getLiveStatus(roomId: item.roomId);
+    } catch (e) {
+      Log.w("查询直播状态失败：${item.userName}（${item.siteId}）$e");
+      item.liveStatus.value = 0;
+      item.liveStartTime = null;
+      item.cover.value = null;
+      return;
+    }
+    if (!isLiving) {
+      item.liveStatus.value = 1;
+      item.liveStartTime = null;
+      item.cover.value = null;
+      return;
+    }
+    // 状态已经确定是「直播中」，先落状态再去补详情：详情失败只影响封面与
+    // 开播时长，不该反过来改变状态
+    item.liveStatus.value = 2;
+    try {
+      var detail = await site.liveSite.getRoomDetail(roomId: item.roomId);
+      item.liveStartTime = detail.showTime;
+      item.cover.value = detail.cover;
+    } catch (e) {
+      Log.w("查询直播间详情失败：${item.userName}（${item.siteId}）$e");
+      item.liveStartTime = null;
+      item.cover.value = null;
+    }
+  }
+
+  /// 记录一个房间刷新完成；全部完成后统一排序并收起刷新状态。
+  void _markUpdated() {
+    updatedCount++;
+    if (updatedCount >= list.length) {
+      sortList();
+      updating.value = false;
     }
   }
 
