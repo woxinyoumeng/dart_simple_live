@@ -12,3 +12,15 @@ simple_live_tv_app/.vscode/settings.json
 
 # 打包产物集中目录（体积大，不入库）
 /pkg/
+
+# 本地工具配置与索引缓存
+.idea/
+.codebase-memory/
+
+# 子项目的构建产物：各自的 .gitignore 只覆盖自身目录，android/ 与 core/ 下的
+# build/ 不在其中
+simple_live_core/build/
+simple_live_tv_app/android/build/
+
+# Xcode 解析 SwiftPM 依赖时在各 target 下生成的缓存
+**/xcshareddata/swiftpm/
