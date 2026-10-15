@@ -835,6 +835,20 @@ class LiveRoomPage extends GetView<LiveRoomController> {
   List<Widget> buildAppbarActions(BuildContext context) {
     return [
       Obx(
+        () => Padding(
+          padding: AppStyle.edgeInsetsH8,
+          child: Center(
+            child: Text(
+              controller.datetime.value,
+              style: TextStyle(
+                fontSize: 16,
+                color: Theme.of(context).appBarTheme.foregroundColor,
+              ),
+            ),
+          ),
+        ),
+      ),
+      Obx(
         () => IconButton(
           onPressed: () {
             controller.showInfoPanel.toggle();

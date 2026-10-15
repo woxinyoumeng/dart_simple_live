@@ -60,13 +60,18 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   /// 是否处于后台
   var isBackground = false;
 
-  var datetime = "00:00".obs;
+  /// 播放页顶部标题栏显示的当前时间
+  var datetime = "00:00:00".obs;
+
+  /// 时钟定时器；退出播放页不取消的话会每秒泄漏一个定时器
+  Timer? _clockTimer;
 
   void initTimer() {
-    Timer.periodic(const Duration(seconds: 1), (timer) {
+    _clockTimer?.cancel();
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       var now = DateTime.now();
       datetime.value =
-          "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+          "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
     });
   }
 
@@ -726,6 +731,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   @override
   void onClose() {
     // 只清理本控制器新增的定时器：看门狗由 PlayerController.onClose 统一停止
+    _clockTimer?.cancel();
     _playbackRecoverTimer?.cancel();
     _playUrlRefreshTimer?.cancel();
     liveDanmaku.stop();

@@ -166,6 +166,13 @@ Widget buildFullControls(
                     ),
                   ),
                   AppStyle.hGap12,
+                  Obx(
+                    () => Text(
+                      controller.datetime.value,
+                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                  ),
+                  AppStyle.hGap12,
                   IconButton(
                     onPressed: () {
                       controller.saveScreenshot();

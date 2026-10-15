@@ -113,6 +113,10 @@ class LiveRoomController extends PlayerController
   var liveDuration = "00:00:00".obs;
   Timer? _liveDurationTimer;
 
+  /// 播放页顶部标题栏显示的当前时间
+  var datetime = "00:00:00".obs;
+  Timer? _clockTimer;
+
   @override
   void onInit() {
     WidgetsBinding.instance.addObserver(this);
@@ -122,6 +126,7 @@ class LiveRoomController extends PlayerController
       FollowService.instance.loadData();
     }
     initAutoExit();
+    startClockTimer();
     showDanmakuState.value = AppSettingsController.instance.danmuEnable.value;
     followed.value = DBService.instance.getFollowExist("${site.id}_$roomId");
     loadData();
@@ -1462,6 +1467,16 @@ ${error?.stackTrace}''');
     }
   }
 
+  /// 启动顶部标题栏时钟，每秒刷新一次
+  void startClockTimer() {
+    _clockTimer?.cancel();
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      var now = DateTime.now();
+      datetime.value =
+          "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
+    });
+  }
+
   @override
   void onClose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -1475,6 +1490,7 @@ ${error?.stackTrace}''');
     liveDanmaku.stop();
     danmakuController = null;
     _liveDurationTimer?.cancel(); // 页面关闭时取消定时器
+    _clockTimer?.cancel();
     super.onClose();
   }
 }
