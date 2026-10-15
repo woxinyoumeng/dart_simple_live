@@ -23,6 +23,8 @@ import 'package:simple_live_app/modules/mine/parse/parse_controller.dart';
 import 'package:simple_live_app/modules/mine/parse/parse_page.dart';
 import 'package:simple_live_app/modules/sync/local_sync/local_sync_controller.dart';
 import 'package:simple_live_app/modules/sync/local_sync/local_sync_page.dart';
+import 'package:simple_live_app/modules/sync/local_backup/local_backup_controller.dart';
+import 'package:simple_live_app/modules/sync/local_backup/local_backup_page.dart';
 import 'package:simple_live_app/modules/mine/account/account_controller.dart';
 import 'package:simple_live_app/modules/mine/account/account_page.dart';
 import 'package:simple_live_app/modules/mine/account/bilibili/qr_login_controller.dart';
@@ -195,6 +197,14 @@ class AppPages {
       page: () => const SyncScanQRPage(),
       bindings: [
         BindingsBuilder.put(() => SyncScanQRControlelr()),
+      ],
+    ),
+    //本地备份
+    GetPage(
+      name: RoutePath.kSyncLocalBackup,
+      page: () => const LocalBackupPage(),
+      bindings: [
+        BindingsBuilder.put(() => LocalBackupController()),
       ],
     ),
     //同步设备

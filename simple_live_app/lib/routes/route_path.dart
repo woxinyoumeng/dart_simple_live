@@ -66,6 +66,9 @@ class RoutePath {
   /// 扫描
   static const kSyncScan = "/sync/scan";
 
+  /// 本地备份
+  static const kSyncLocalBackup = "/sync/local_backup";
+
   /// 同步设备
   static const kLocalSyncDevice = "/sync/device";
 

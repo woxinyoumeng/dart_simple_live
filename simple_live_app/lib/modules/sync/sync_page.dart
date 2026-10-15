@@ -122,6 +122,28 @@ class SyncPage extends StatelessWidget {
               ],
             ),
           ),
+          Padding(
+            padding: AppStyle.edgeInsetsA12.copyWith(top: 24),
+            child: Text(
+              "本地备份",
+              style: Get.textTheme.titleSmall,
+            ),
+          ),
+          SettingsCard(
+            child: Column(
+              children: [
+                ListTile(
+                  title: const Text("导出/导入数据"),
+                  leading: const Icon(Remix.save_3_line),
+                  subtitle: const Text("把同步数据导出为本地文件，或从本地文件恢复"),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Get.toNamed(RoutePath.kSyncLocalBackup);
+                  },
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
