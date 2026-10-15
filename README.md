@@ -44,6 +44,33 @@
 
 Flutter : `3.38`
 
+## 打包
+
+产物统一放进 `pkg/`。
+
+| 目标 | 命令（在对应子项目目录下执行） | 产物路径 |
+| --- | --- | --- |
+| iOS | `flutter build ipa --release --export-options-plist=ios/ExportOptions-debugging.plist` | `build/ios/ipa/simple_live_app.ipa` |
+| macOS arm64 | `FLUTTER_XCODE_ARCHS=arm64 flutter build macos --release` | `build/macos/Build/Products/Release/Simple Live.app` |
+| Android TV（`simple_live_tv_app`） | `flutter build apk --release --split-per-abi` | `build/app/outputs/flutter-apk/app-<abi>-release.apk` |
+
+macOS 的 dmg 用 `hdiutil` 打，与既有包结构一致（镜像里只有 app，无快捷方式）：
+
+```bash
+STAGE=$(mktemp -d)
+ditto "build/macos/Build/Products/Release/Simple Live.app" "$STAGE/SimpleLive-arm64.app"
+hdiutil create -volname "SimpleLive-arm64" -srcfolder "$STAGE" -ov -format UDZO \
+  ../pkg/Simple_Live-<版本>-arm64.dmg
+rm -rf "$STAGE"
+```
+
+注意事项：
+
+- iOS 必须指定 `ios/ExportOptions-debugging.plist`：Xcode 27 的导出方式是 `debugging`（Development 签名，仅可装到已注册设备），而 `flutter build ipa --export-method` 不接受该值。
+- macOS 用 `FLUTTER_XCODE_ARCHS=arm64` 直接构建 thin arm64，无需事后 `lipo` 瘦身与重签（构建参数由 Flutter 透传给 xcodebuild）。
+- 两处 Podfile 的 `post_install` 已把各 pod 的部署目标对齐到项目声明值（iOS 15.0 / macOS 12.0）：Xcode 27 起低于该下限会直接构建失败，勿删。
+- 各端签名：iOS 用 Development 证书（见上条，仅可装到已注册设备）；macOS 为 adhoc，首次打开需右键 → 打开；TV 用 `simple_live_tv_app/android/key.properties` 指向的 keystore。
+
 ## 参考及引用
 
 [AllLive](https://github.com/xiaoyaocz/AllLive) `本项目的C#版，有兴趣可以看看`
