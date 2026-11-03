@@ -52,6 +52,8 @@ Flutter : `3.38`
 | --- | --- | --- |
 | iOS | `flutter build ipa --release --export-options-plist=ios/ExportOptions-debugging.plist` | `build/ios/ipa/simple_live_app.ipa` |
 | macOS arm64 | `FLUTTER_XCODE_ARCHS=arm64 flutter build macos --release` | `build/macos/Build/Products/Release/Simple Live.app` |
+| macOS x86_64 | `FLUTTER_XCODE_ARCHS=x86_64 flutter build macos --release` | 同上（同一路径，架构由构建参数决定） |
+| Android 手机版（`simple_live_app`） | `flutter build apk --release --split-per-abi`（依赖 `android/key.properties`） | `build/app/outputs/flutter-apk/app-<abi>-release.apk` |
 | Android TV（`simple_live_tv_app`） | `flutter build apk --release --split-per-abi` | `build/app/outputs/flutter-apk/app-<abi>-release.apk` |
 
 macOS 的 dmg 用 `hdiutil` 打，与既有包结构一致（镜像里只有 app，无快捷方式）：
@@ -67,9 +69,18 @@ rm -rf "$STAGE"
 注意事项：
 
 - iOS 必须指定 `ios/ExportOptions-debugging.plist`：Xcode 27 的导出方式是 `debugging`（Development 签名，仅可装到已注册设备），而 `flutter build ipa --export-method` 不接受该值。
-- macOS 用 `FLUTTER_XCODE_ARCHS=arm64` 直接构建 thin arm64，无需事后 `lipo` 瘦身与重签（构建参数由 Flutter 透传给 xcodebuild）。
+- macOS 用 `FLUTTER_XCODE_ARCHS=<arm64|x86_64>` 直接构建 thin 单架构，无需事后 `lipo` 瘦身与重签（构建参数由 Flutter 透传给 xcodebuild）。Flutter 的 `darwin-x64` 引擎 xcframework 本身含 arm64 + x86_64 两个 slice，在 Apple Silicon 上交叉构建 x86_64 无需额外配置。
+- 首次构建若报 `media_kit_video/{macos,ios}/Headers/mpv/*.h: No such file`，是 pub cache 里 media_kit 的 podspec 在执行 `make` 下载依赖时静默失败（网络）。带代理按目标平台补生成后再构建：
+  ```bash
+  # macOS
+  cd ~/.pub-cache/hosted/pub.dev/media_kit_libs_macos_video-1.1.4/macos && make
+  cd ~/.pub-cache/hosted/pub.dev/media_kit_video-2.0.1 && make -C common/darwin HEADERS_DESTDIR="$PWD/macos/Headers"
+  # iOS
+  cd ~/.pub-cache/hosted/pub.dev/media_kit_libs_ios_video-1.1.4/ios && make
+  cd ~/.pub-cache/hosted/pub.dev/media_kit_video-2.0.1 && make -C common/darwin HEADERS_DESTDIR="$PWD/ios/Headers"
+  ```
 - 两处 Podfile 的 `post_install` 已把各 pod 的部署目标对齐到项目声明值（iOS 15.0 / macOS 12.0）：Xcode 27 起低于该下限会直接构建失败，勿删。
-- 各端签名：iOS 用 Development 证书（见上条，仅可装到已注册设备）；macOS 为 adhoc，首次打开需右键 → 打开；TV 用 `simple_live_tv_app/android/key.properties` 指向的 keystore。
+- 各端签名：iOS 用 Development 证书（见上条，仅可装到已注册设备）；macOS 为 adhoc，首次打开需右键 → 打开；Android 手机版与 TV 分别用各自 `android/key.properties` 指向的 keystore，缺少该文件时 release 构建读取签名配置会直接失败。
 
 ## 参考及引用
 
