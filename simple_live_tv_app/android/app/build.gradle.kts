@@ -52,8 +52,10 @@ android {
 
     buildTypes {
         release {
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("release")
+            // 原 release keystore（~/simple_live_tv_local.jks）在本机已丢失。
+            // 按用户选择改用 debug 签名：产物可侧载安装，但与旧版签名不同，
+            // 安装前必须先卸载旧版本；拿到原 keystore 后改回 signingConfigs.release。
+            signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
