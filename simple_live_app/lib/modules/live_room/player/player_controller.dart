@@ -253,6 +253,11 @@ mixin PlayerMixin {
     }
     if (player.platform is NativePlayer) {
       await _applyPlaybackBuffer(pp);
+      // media_kit 默认 cache-on-disk=yes，会把 demuxer cache 落到磁盘。
+      // 移动端沙盒里没有可写的缓存目录，每次开播都报
+      // "Failed to create file cache." 再回退；直播不可回看，磁盘缓存没有收益，
+      // 内存上限已经由 _applyPlaybackBuffer 控制。
+      await pp.setProperty('cache-on-disk', 'no');
     }
     // media_kit 仓库更新导致的问题，临时解决办法
     if (Platform.isAndroid) {
