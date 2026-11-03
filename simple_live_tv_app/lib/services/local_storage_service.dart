@@ -126,6 +126,9 @@ class LocalStorageService extends GetxService {
   /// 开启自动更新关注
   static const String kAutoUpdateFollowEnable = "AutoUpdateFollowEnable";
 
+  /// 关注列表按观看喜好排序
+  static const String kFollowSortByPreference = "FollowSortByPreference";
+
   /// 定时自动更新关注间隔（分钟）
   static const String kUpdateFollowDuration = "AutoUpdateFollowDuration";
 

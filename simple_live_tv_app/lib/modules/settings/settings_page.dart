@@ -288,6 +288,29 @@ class SettingsPage extends GetView<SettingsController> {
         AppStyle.vGap24,
         Obx(
           () => SettingsItemWidget(
+            foucsNode: controller.followSortByPreferenceFocusNode,
+            autofocus:
+                controller.followSortByPreferenceFocusNode.isFoucsed.value,
+            title: "按观看喜好排序",
+            items: const {
+              0: "关",
+              1: "开",
+            },
+            value:
+                AppSettingsController.instance.followSortByPreference.value
+                    ? 1
+                    : 0,
+            onChanged: (e) {
+              AppSettingsController.instance
+                  .setFollowSortByPreference(e == 1 ? true : false);
+              // 切换后立即重排现有列表，无需等待下一轮刷新
+              FollowUserService.instance.sortList();
+            },
+          ),
+        ),
+        AppStyle.vGap24,
+        Obx(
+          () => SettingsItemWidget(
             foucsNode: controller.autoUpdateFollowDurationFocusNode,
             autofocus:
                 controller.autoUpdateFollowDurationFocusNode.isFoucsed.value,

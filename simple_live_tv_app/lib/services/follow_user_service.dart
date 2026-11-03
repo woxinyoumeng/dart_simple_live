@@ -8,6 +8,7 @@ import 'package:simple_live_tv_app/app/log.dart';
 import 'package:simple_live_tv_app/app/sites.dart';
 import 'package:simple_live_tv_app/app/utils.dart';
 import 'package:simple_live_tv_app/models/db/follow_user.dart';
+import 'package:simple_live_tv_app/models/db/history.dart';
 import 'package:simple_live_tv_app/services/db_service.dart';
 
 class FollowUserService extends BasePageController<FollowUser> {
@@ -17,6 +18,62 @@ class FollowUserService extends BasePageController<FollowUser> {
   RxList<FollowUser> livingList = RxList<FollowUser>();
   Timer? updateTimer;
   bool needUpdate = true;
+
+  /// 观看记录索引，「房间 id → 观看记录」；排序比较器逐次查库会放大开销
+  Map<String, History> _historyIndex = {};
+
+  Map<String, History> _buildHistoryIndex() {
+    var index = <String, History>{};
+    for (var history in DBService.instance.getHistores()) {
+      index[history.id] = history;
+    }
+    return index;
+  }
+
+  /// 按观看喜好排序：先直播状态，再累计访问次数，最后最近观看时间。
+  /// [historyById] 为「房间 id → 观看记录」索引；[byPreference] 为设置开关，
+  /// 关闭时退化为仅按直播状态排序
+  static int compareFollowUser(
+    FollowUser a,
+    FollowUser b,
+    Map<String, History> historyById,
+    bool byPreference,
+  ) {
+    var liveCompare = b.liveStatus.value.compareTo(a.liveStatus.value);
+    if (!byPreference || liveCompare != 0) {
+      return liveCompare;
+    }
+    var historyA = historyById[a.id];
+    var historyB = historyById[b.id];
+    var countCompare =
+        (historyB?.visitCount ?? 0).compareTo(historyA?.visitCount ?? 0);
+    if (countCompare != 0) {
+      return countCompare;
+    }
+    var timeA = historyA?.updateTime;
+    var timeB = historyB?.updateTime;
+    if (timeA == null && timeB == null) {
+      return 0;
+    }
+    // 从未看过的排在看过之后
+    if (timeA == null) {
+      return 1;
+    }
+    if (timeB == null) {
+      return -1;
+    }
+    return timeB.compareTo(timeA);
+  }
+
+  /// 对目标列表排序；开关开启时补建观看记录索引
+  void sortFollowUserList(List<FollowUser> target) {
+    var byPreference =
+        AppSettingsController.instance.followSortByPreference.value;
+    _historyIndex = byPreference ? _buildHistoryIndex() : {};
+    target.sort(
+      (a, b) => compareFollowUser(a, b, _historyIndex, byPreference),
+    );
+  }
   @override
   void onInit() {
     subscription = EventBus.instance.listen(Constant.kUpdateFollow, (p0) {
@@ -65,11 +122,13 @@ class FollowUserService extends BasePageController<FollowUser> {
     if (followList.isEmpty) {
       updating.value = false;
     }
+    // 首次加载也要按设置排序：否则偏好排序要等一轮刷新完成才生效
+    sortFollowUserList(followList);
     return followList;
   }
 
   void sortList() {
-    list.sort((a, b) => b.liveStatus.value.compareTo(a.liveStatus.value));
+    sortFollowUserList(list);
     updateLivingList();
   }
 

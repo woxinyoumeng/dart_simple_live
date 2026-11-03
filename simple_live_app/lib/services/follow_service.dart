@@ -16,6 +16,7 @@ import 'package:simple_live_app/app/sites.dart';
 import 'package:simple_live_app/app/utils.dart';
 import 'package:simple_live_app/models/db/follow_user.dart';
 import 'package:simple_live_app/models/db/follow_user_tag.dart';
+import 'package:simple_live_app/models/db/history.dart';
 import 'package:simple_live_app/services/db_service.dart';
 
 class FollowService extends GetxService {
@@ -42,6 +43,78 @@ class FollowService extends GetxService {
 
   /// 用户自定义的tag
   RxList<FollowUserTag> followTagList = RxList<FollowUserTag>();
+
+  /// 观看记录索引，「房间 id → 观看记录」；排序比较器逐次查库会放大开销
+  Map<String, History> _historyIndex = {};
+
+  Map<String, History> _buildHistoryIndex() {
+    var index = <String, History>{};
+    for (var history in DBService.instance.getHistores()) {
+      index[history.id] = history;
+    }
+    return index;
+  }
+
+  /// 按观看喜好排序：先直播状态，再累计访问次数，最后最近观看时间。
+  /// [historyById] 为「房间 id → 观看记录」索引；[byPreference] 为设置开关，
+  /// 关闭时退化为仅按直播状态排序（保持原有顺序）
+  static int compareFollowUser(
+    FollowUser a,
+    FollowUser b,
+    Map<String, History> historyById,
+    bool byPreference,
+  ) {
+    var liveCompare = b.liveStatus.value.compareTo(a.liveStatus.value);
+    if (!byPreference || liveCompare != 0) {
+      return liveCompare;
+    }
+    var historyA = historyById[a.id];
+    var historyB = historyById[b.id];
+    var countCompare =
+        (historyB?.visitCount ?? 0).compareTo(historyA?.visitCount ?? 0);
+    if (countCompare != 0) {
+      return countCompare;
+    }
+    var timeA = historyA?.updateTime;
+    var timeB = historyB?.updateTime;
+    if (timeA == null && timeB == null) {
+      return 0;
+    }
+    // 从未看过的排在看过之后
+    if (timeA == null) {
+      return 1;
+    }
+    if (timeB == null) {
+      return -1;
+    }
+    return timeB.compareTo(timeA);
+  }
+
+  /// 直播间号关键词判定：纯数字按房间号理解
+  static final RegExp _roomIdPattern = RegExp(r'^\d+$');
+
+  static bool isRoomIdQuery(String query) => _roomIdPattern.hasMatch(query);
+
+  /// 判断关注项是否命中搜索，供关注页搜索结果过滤使用。
+  ///
+  /// [query] 需已 trim；[siteId] 为 null 表示不限平台。
+  /// 纯数字关键词按直播间号匹配，此时必须指定平台：不同平台的房间号会重名，
+  /// 未选平台时不做房间号匹配（交给页面提示用户先选平台）；
+  /// 其余关键词匹配主播名与当前直播标题，忽略大小写。
+  static bool matchesSearch(FollowUser item, String query, String? siteId) {
+    if (query.isEmpty) {
+      return true;
+    }
+    if (siteId != null && item.siteId != siteId) {
+      return false;
+    }
+    var lowerQuery = query.toLowerCase();
+    if (isRoomIdQuery(query)) {
+      return siteId != null && item.roomId.toLowerCase().contains(lowerQuery);
+    }
+    return item.userName.toLowerCase().contains(lowerQuery) ||
+        (item.roomTitle.value?.toLowerCase().contains(lowerQuery) ?? false);
+  }
 
   /// 当前tag的用户列表
   RxList<FollowUser> curTagFollowList = RxList<FollowUser>();
@@ -116,9 +189,14 @@ class FollowService extends GetxService {
       // 更新数据库
       DBService.instance.updateFollowTag(tag);
     }
-    // 标签内排序
+    // 标签内排序：与主列表同一套规则；索引为空而开关开启时补建一次
+    var byPreference =
+        AppSettingsController.instance.followSortByPreference.value;
+    if (byPreference && _historyIndex.isEmpty) {
+      _historyIndex = _buildHistoryIndex();
+    }
     curTagFollowList.sort(
-      (a, b) => b.liveStatus.value.compareTo(a.liveStatus.value),
+      (a, b) => compareFollowUser(a, b, _historyIndex, byPreference),
     );
   }
 
@@ -254,20 +332,29 @@ class FollowService extends GetxService {
         var detail = await site.liveSite.getRoomDetail(roomId: item.roomId);
         item.liveStartTime = detail.showTime;
         item.cover.value = detail.cover;
+        item.roomTitle.value = detail.title;
       } else {
         item.liveStartTime = null;
         item.cover.value = null;
+        item.roomTitle.value = null;
       }
     } catch (e) {
       Log.logPrint(e);
       item.liveStatus.value = 0;
       item.liveStartTime = null;
       item.cover.value = null;
+      item.roomTitle.value = null;
     }
   }
 
   void filterData() {
-    followList.sort((a, b) => b.liveStatus.value.compareTo(a.liveStatus.value));
+    var byPreference =
+        AppSettingsController.instance.followSortByPreference.value;
+    // 只构造类内比较器所需的索引，开关关闭时不遍历观看记录
+    _historyIndex = byPreference ? _buildHistoryIndex() : {};
+    followList.sort(
+      (a, b) => compareFollowUser(a, b, _historyIndex, byPreference),
+    );
     liveList.assignAll(followList.where((x) => x.liveStatus.value == 2));
     notLiveList.assignAll(followList.where((x) => x.liveStatus.value == 1));
     _updatedListController.add(0);

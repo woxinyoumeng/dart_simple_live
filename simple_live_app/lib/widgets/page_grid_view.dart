@@ -19,6 +19,9 @@ class PageGridView extends StatelessWidget {
   final double crossAxisSpacing, mainAxisSpacing;
   final int crossAxisCount;
   final bool showPCRefreshButton;
+
+  /// 空态文案，默认沿用通用提示；关注页搜索无结果时传入更具体的文案
+  final String emptyText;
   const PageGridView({
     required this.itemBuilder,
     required this.pageController,
@@ -29,6 +32,7 @@ class PageGridView extends StatelessWidget {
     this.crossAxisSpacing = 0.0,
     this.mainAxisSpacing = 0.0,
     this.showPCRefreshButton = true,
+    this.emptyText = "这里什么都没有",
     required this.crossAxisCount,
     Key? key,
   }) : super(key: key);
@@ -108,6 +112,7 @@ class PageGridView extends StatelessWidget {
           Offstage(
             offstage: !pageController.pageEmpty.value,
             child: AppEmptyWidget(
+              text: emptyText,
               onRefresh: () => pageController.refreshData(),
             ),
           ),

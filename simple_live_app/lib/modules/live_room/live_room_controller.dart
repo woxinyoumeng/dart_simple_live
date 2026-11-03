@@ -922,6 +922,8 @@ class LiveRoomController extends PlayerController
     var history = DBService.instance.getHistory(id);
     if (history != null) {
       history.updateTime = DateTime.now();
+      // 累计访问次数，作为「按观看喜好排序」的主要依据
+      history.visitCount = (history.visitCount ?? 0) + 1;
     }
     history ??= History(
       id: id,
@@ -930,6 +932,7 @@ class LiveRoomController extends PlayerController
       userName: detail.value?.userName ?? "",
       face: detail.value?.userAvatar ?? "",
       updateTime: DateTime.now(),
+      visitCount: 1,
     );
 
     DBService.instance.addOrUpdateHistory(history);

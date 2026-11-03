@@ -147,6 +147,9 @@ class AppSettingsController extends GetxController {
     autoUpdateFollowEnable.value = LocalStorageService.instance
         .getValue(LocalStorageService.kAutoUpdateFollowEnable, true);
 
+    followSortByPreference.value = LocalStorageService.instance
+        .getValue(LocalStorageService.kFollowSortByPreference, true);
+
     autoUpdateFollowDuration.value = LocalStorageService.instance
         .getValue(LocalStorageService.kUpdateFollowDuration, 10);
 
@@ -509,6 +512,14 @@ class AppSettingsController extends GetxController {
     autoUpdateFollowEnable.value = e;
     LocalStorageService.instance
         .setValue(LocalStorageService.kAutoUpdateFollowEnable, e);
+  }
+
+  /// 关注列表按观看喜好排序（默认开启）
+  var followSortByPreference = true.obs;
+  void setFollowSortByPreference(bool e) {
+    followSortByPreference.value = e;
+    LocalStorageService.instance
+        .setValue(LocalStorageService.kFollowSortByPreference, e);
   }
 
   var autoUpdateFollowDuration = 10.obs;

@@ -54,6 +54,19 @@ class FollowSettingsPage extends GetView<AppSettingsController> {
                 ),
                 AppStyle.divider,
                 Obx(
+                  () => SettingsSwitch(
+                    value: controller.followSortByPreference.value,
+                    title: "按观看喜好排序",
+                    subtitle: "常看的、最近看过的关注排在前面",
+                    onChanged: (e) {
+                      controller.setFollowSortByPreference(e);
+                      // 立即按新规则重排并通知关注页刷新
+                      FollowService.instance.filterData();
+                    },
+                  ),
+                ),
+                AppStyle.divider,
+                Obx(
                   () {
                     var threadCount = controller.updateFollowThreadCount.value;
                     var displayValue = threadCount == 0
